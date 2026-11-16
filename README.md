@@ -72,6 +72,10 @@ Endpointy wymagające logowania przyjmują nagłówek `Authorization: Bearer <to
 | POST | `/api/auth/register` | publiczny | rejestracja: `{ email, password, firstName?, lastName? }` |
 | POST | `/api/auth/login` | publiczny | logowanie: `{ email, password }` |
 | GET | `/api/auth/me` | zalogowany | dane zalogowanego użytkownika |
+| GET | `/api/ticket-types` | publiczny | lista rodzajów biletów dostępnych w sprzedaży (`is_active = 1`) |
+| GET | `/api/ticket-types/:id` | publiczny | jeden rodzaj biletu; `404` gdy nie istnieje lub jest wycofany |
+| POST | `/api/tickets/purchase` | zalogowany | zakup biletu: `{ ticketTypeId, paymentMethod: "blik" \| "card" \| "transfer" }` → `201` |
+| GET | `/api/tickets/me` | zalogowany | bilety zalogowanego użytkownika, najnowsze pierwsze |
 
 Rejestracja i logowanie zwracają:
 
@@ -83,6 +87,32 @@ Rejestracja i logowanie zwracają:
 ```
 
 Kody błędów: `400` niepoprawne dane, `401` brak lub zły token albo złe hasło, `403` brak uprawnień admina, `409` e-mail zajęty.
+
+### Rodzaje biletów i bilety
+
+`GET /api/ticket-types` zwraca `{ "ticketTypes": [...] }`, a `GET /api/ticket-types/:id` – `{ "ticketType": {...} }`:
+
+```json
+{ "id": 1, "name": "Bilet 20-minutowy", "description": "Jednorazowy przejazd do 20 minut", "priceGrosze": 340, "durationMinutes": 20, "isReduced": false }
+```
+
+`POST /api/tickets/purchase` w jednej transakcji zapisuje bilet (status `purchased`, cena z chwili zakupu)
+i symulowaną płatność (status `completed`). Zwraca `201`:
+
+```json
+{
+  "ticket": {
+    "id": 1, "status": "purchased", "pricePaidGrosze": 340,
+    "purchasedAt": "2026-11-16 12:37:40", "activatedAt": null, "expiresAt": null,
+    "ticketType": { "id": 1, "name": "Bilet 20-minutowy", "description": "Jednorazowy przejazd do 20 minut", "durationMinutes": 20, "isReduced": false }
+  },
+  "payment": { "id": 1, "method": "blik", "status": "completed", "amountGrosze": 340, "createdAt": "2026-11-16 12:37:40" }
+}
+```
+
+`GET /api/tickets/me` zwraca `{ "tickets": [...] }` – każdy bilet w tym samym kształcie co `ticket` powyżej.
+
+Błędy zakupu: `400` zły `ticketTypeId` lub `paymentMethod`, `400` rodzaj biletu wycofany ze sprzedaży, `404` rodzaj biletu nie istnieje.
 
 ### Przykład z frontendu
 
