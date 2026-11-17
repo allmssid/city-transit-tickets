@@ -3,10 +3,445 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bilety MPK</title>
+  <title>Bilety MPK — Logowanie i Rejestracja</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #cbd5e1;
+      --error-bg: #fef2f2;
+      --error-text: #dc2626;
+      --success-bg: #f0fdf4;
+      --success-text: #16a34a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .container {
+      background: var(--card);
+      width: 100%;
+      max-width: 420px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+      padding: 2rem;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .header p {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--bg);
+      padding: 4px;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-btn {
+      border: none;
+      background: transparent;
+      padding: 0.6rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--muted);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--card);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    label span {
+      font-weight: 400;
+      color: var(--muted);
+    }
+
+    input {
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 0.75rem;
+      margin-top: 0.5rem;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-submit:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-logout {
+      width: 100%;
+      padding: 0.7rem;
+      margin-top: 1.25rem;
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-logout:hover {
+      background: #dc2626;
+    }
+
+    .alert {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .alert.error {
+      display: block;
+      background: var(--error-bg);
+      color: var(--error-text);
+      border: 1px solid #fecaca;
+    }
+
+    .alert.success {
+      display: block;
+      background: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid #bbf7d0;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .profile-box {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 1rem;
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      border-radius: 999px;
+      background: #dbeafe;
+      color: #1e40af;
+      text-transform: uppercase;
+    }
+  </style>
 </head>
 <body>
-  <h1>System sprzedaży biletów komunikacji miejskiej</h1>
-  <p>Tu powstanie frontend. API działa pod adresem <a href="/api/health">/api/health</a>.</p>
+  <div class="container">
+    <div class="header">
+      <h1>Bilety MPK</h1>
+      <p>System sprzedaży biletów komunikacji miejskiej</p>
+    </div>
+
+    <div id="alertBox" class="alert"></div>
+
+    <!-- Widok niezalogowanego użytkownika -->
+    <div id="authView">
+      <div class="tabs">
+        <button type="button" id="tabLogin" class="tab-btn active">Logowanie</button>
+        <button type="button" id="tabRegister" class="tab-btn">Rejestracja</button>
+      </div>
+
+      <!-- Formularz logowania: POST /api/auth/login -->
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="loginEmail">Adres e-mail</label>
+          <input type="email" id="loginEmail" placeholder="np. admin@mpk.local" required>
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Hasło</label>
+          <input type="password" id="loginPassword" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn-submit" id="loginBtn">Zaloguj się</button>
+      </form>
+
+      <!-- Formularz rejestracji: POST /api/auth/register -->
+      <form id="registerForm" class="hidden">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="regFirstName">Imię <span>(opcjonalnie)</span></label>
+            <input type="text" id="regFirstName" maxlength="100" placeholder="Jan">
+          </div>
+          <div class="form-group">
+            <label for="regLastName">Nazwisko <span>(opcjonalnie)</span></label>
+            <input type="text" id="regLastName" maxlength="100" placeholder="Kowalski">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="regEmail">Adres e-mail</label>
+          <input type="email" id="regEmail" placeholder="jan.kowalski@example.com" required>
+        </div>
+        <div class="form-group">
+          <label for="regPassword">Hasło <span>(min. 8 znaków)</span></label>
+          <input type="password" id="regPassword" minlength="8" maxlength="72" placeholder="Minimum 8 znaków" required>
+        </div>
+        <button type="submit" class="btn-submit" id="registerBtn">Utwórz konto</button>
+      </form>
+    </div>
+
+    <!-- Widok zalogowanego użytkownika: GET /api/auth/me -->
+    <div id="profileView" class="hidden">
+      <div class="profile-box">
+        <div><strong>Zalogowano jako:</strong> <span id="userFullName"></span> <span id="userRole" class="badge"></span></div>
+        <div><strong>E-mail:</strong> <span id="userEmail"></span></div>
+        <div><strong>ID konta:</strong> #<span id="userId"></span></div>
+      </div>
+      <button type="button" id="logoutBtn" class="btn-logout">Wyloguj się</button>
+    </div>
+  </div>
+
+  <script>
+    // Automatyczne dopasowanie adresu API (gdy otwarte z Expressa na :3000 lub z Live Server na :5500)
+    const API_BASE = window.location.port === '3000'
+      ? '/api'
+      : 'http://localhost:3000/api';
+
+    const TOKEN_KEY = 'mpk_jwt_token';
+
+    const alertBox = document.getElementById('alertBox');
+    const authView = document.getElementById('authView');
+    const profileView = document.getElementById('profileView');
+
+    const tabLogin = document.getElementById('tabLogin');
+    const tabRegister = document.getElementById('tabRegister');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+
+    function showAlert(message, type = 'error') {
+      alertBox.textContent = message;
+      alertBox.className = `alert ${type}`;
+    }
+
+    function clearAlert() {
+      alertBox.textContent = '';
+      alertBox.className = 'alert';
+    }
+
+    // Przełączanie zakładek Logowanie / Rejestracja
+    tabLogin.addEventListener('click', () => {
+      clearAlert();
+      tabLogin.classList.add('active');
+      tabRegister.classList.remove('active');
+      loginForm.classList.remove('hidden');
+      registerForm.classList.add('hidden');
+    });
+
+    tabRegister.addEventListener('click', () => {
+      clearAlert();
+      tabRegister.classList.add('active');
+      tabLogin.classList.remove('active');
+      registerForm.classList.remove('hidden');
+      loginForm.classList.add('hidden');
+    });
+
+    function renderLoggedIn(user) {
+      authView.classList.add('hidden');
+      profileView.classList.remove('hidden');
+
+      const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Użytkownik';
+      document.getElementById('userFullName').textContent = fullName;
+      document.getElementById('userRole').textContent = user.role;
+      document.getElementById('userEmail').textContent = user.email;
+      document.getElementById('userId').textContent = user.id;
+    }
+
+    function renderLoggedOut() {
+      localStorage.removeItem(TOKEN_KEY);
+      profileView.classList.add('hidden');
+      authView.classList.remove('hidden');
+    }
+
+    // Weryfikacja zapisanego tokenu przy starcie strony (GET /api/auth/me)
+    async function checkSession() {
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (!token) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!res.ok) {
+          renderLoggedOut();
+          return;
+        }
+
+        const data = await res.json();
+        renderLoggedIn(data.user);
+      } catch {
+        showAlert('Brak połączenia z serwerem API (sprawdź, czy działa npm start).');
+      }
+    }
+
+    // Obsługa logowania (POST /api/auth/login)
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearAlert();
+
+      const btn = document.getElementById('loginBtn');
+      btn.disabled = true;
+
+      const payload = {
+        email: document.getElementById('loginEmail').value,
+        password: document.getElementById('loginPassword').value
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showAlert(data.error || 'Błąd logowania.');
+          return;
+        }
+
+        localStorage.setItem(TOKEN_KEY, data.token);
+        loginForm.reset();
+        showAlert('Zalogowano pomyślnie!', 'success');
+        renderLoggedIn(data.user);
+      } catch {
+        showAlert('Nie udało się połączyć z serwerem.');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Obsługa rejestracji (POST /api/auth/register)
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearAlert();
+
+      const btn = document.getElementById('registerBtn');
+      btn.disabled = true;
+
+      const payload = {
+        firstName: document.getElementById('regFirstName').value,
+        lastName: document.getElementById('regLastName').value,
+        email: document.getElementById('regEmail').value,
+        password: document.getElementById('regPassword').value
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showAlert(data.error || 'Błąd rejestracji.');
+          return;
+        }
+
+        localStorage.setItem(TOKEN_KEY, data.token);
+        registerForm.reset();
+        showAlert('Konto zostało utworzone i zalogowano!', 'success');
+        renderLoggedIn(data.user);
+      } catch {
+        showAlert('Nie udało się połączyć z serwerem.');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Wylogowanie
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      renderLoggedOut();
+      showAlert('Wylogowano.', 'success');
+    });
+
+    checkSession();
+  </script>
 </body>
 </html>
