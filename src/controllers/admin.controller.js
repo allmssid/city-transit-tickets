@@ -1,7 +1,9 @@
 const db = require('../db/connection');
 const HttpError = require('../utils/HttpError');
-const { toPublicTicketType, parseId } = require('./ticketTypes.controller');
-const { toPublicTicket } = require('./tickets.controller');
+const parseId = require('../utils/parseId');
+const { toIsoUtc } = require('../utils/dates');
+const { toPublicTicketType } = require('./ticketTypes.controller');
+const { toPublicTicket, markExpired } = require('./tickets.controller');
 
 const NAME_MAX_LENGTH = 100;
 const DESCRIPTION_MAX_LENGTH = 500;
@@ -93,8 +95,8 @@ function toAdminTicketType(row) {
     ...toPublicTicketType(row),
     isActive: row.is_active === 1,
     ticketsSold: row.tickets_sold,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: toIsoUtc(row.created_at),
+    updatedAt: toIsoUtc(row.updated_at),
   };
 }
 
@@ -215,6 +217,7 @@ function listTickets(req, res) {
   const userId = query.userId === undefined ? null : parseId(query.userId);
   const { limit, offset } = parsePaging(query);
 
+  markExpired();
   const filters = { status, userId };
   const tickets = listAdminTickets.all({ ...filters, limit, offset }).map((row) => ({
     ...toPublicTicket(row),
@@ -251,6 +254,7 @@ const statsByType = db.prepare(`
 
 // GET /api/admin/stats — podsumowanie sprzedaży do panelu administratora
 function stats(req, res) {
+  markExpired();
   const totals = statsTotals.get();
   res.json({
     ticketsSold: totals.tickets_sold,
