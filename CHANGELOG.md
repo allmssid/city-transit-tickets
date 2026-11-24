@@ -22,6 +22,28 @@ Jak coś uruchomić albo jak działa – to opisuje `README.md`, nie ten plik.
 
 ## Dodane
 
+- **Panel administratora – frontend** (`public/admin.html`, `public/css/admin.css`, `public/js/admin.js`),
+  adres `http://localhost:3000/admin.html`. Wejście tylko dla roli `admin` (sprawdzane przez `GET /api/auth/me`;
+  inni widzą komunikat). Zakładki: **Podsumowanie** (kafelki + sprzedaż wg rodzaju biletu), **Cennik**
+  (tabela, dodawanie i edycja w oknie dialogowym – cena w zł, czas ważności w min / godz. / dni, wycofanie
+  i przywracanie), **Sprzedaż** (wszystkie zakupy, filtr statusu, po 20 na stronę). Ten sam klucz tokena
+  (`mpk_jwt_token`) co ekran logowania. Na razie własne style i funkcja `api()` – po scaleniu wspólnych
+  `css/style.css` i `js/api.js` do przepięcia. **Kacper:** w nawigacji link „Panel admina” → `admin.html`
+  tylko dla `role === 'admin'`. `(feature/admin)`
+
+- **API panelu administratora** (`src/controllers/admin.controller.js`, `src/routes/admin.routes.js`, podpięte
+  jako `/api/admin` w `src/routes/index.js`; wszystkie trasy `requireAuth` + `requireAdmin`, inaczej `401` / `403`):
+  - `GET /api/admin/ticket-types` – wszystkie rodzaje biletów, także wycofane; pola publiczne + `isActive`,
+    `ticketsSold`, `createdAt`, `updatedAt`,
+  - `POST /api/admin/ticket-types` `{ name, priceGrosze, durationMinutes, description?, isReduced? }` → `201`,
+  - `PATCH /api/admin/ticket-types/:id` – zmiana dowolnych z pól `name`, `description`, `priceGrosze`,
+    `durationMinutes`, `isReduced`; kupione bilety zachowują cenę z chwili zakupu,
+  - `PATCH /api/admin/ticket-types/:id/status` `{ isActive }` – wycofanie ze sprzedaży / przywrócenie (bez usuwania),
+  - `GET /api/admin/tickets?status=&userId=&limit=&offset=` – wszystkie zakupy z danymi kupującego i płatności,
+    `{ tickets, total, limit, offset }`; bilet w tym samym kształcie co `GET /api/tickets/me` + `user` i `payment`,
+  - `GET /api/admin/stats` – liczba sprzedanych biletów, przychód w groszach, bilety wg statusu,
+    liczba zarejestrowanych użytkowników, sprzedaż wg rodzaju biletu. `(feature/admin)`
+
 - **Rodzaje biletów – API publiczne** (`src/controllers/ticketTypes.controller.js`,
   `src/routes/ticketTypes.routes.js`): `GET /api/ticket-types` (tylko aktywne) i `GET /api/ticket-types/:id`.
   Odpowiedzi w camelCase: `{ ticketTypes: [...] }` / `{ ticketType }`, pola `priceGrosze`, `durationMinutes`,

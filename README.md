@@ -76,6 +76,12 @@ Endpointy wymagające logowania przyjmują nagłówek `Authorization: Bearer <to
 | GET | `/api/ticket-types/:id` | publiczny | jeden rodzaj biletu; `404` gdy nie istnieje lub jest wycofany |
 | POST | `/api/tickets/purchase` | zalogowany | zakup biletu: `{ ticketTypeId, paymentMethod: "blik" \| "card" \| "transfer" }` → `201` |
 | GET | `/api/tickets/me` | zalogowany | bilety zalogowanego użytkownika, najnowsze pierwsze |
+| GET | `/api/admin/ticket-types` | admin | wszystkie rodzaje biletów, także wycofane, z liczbą sprzedanych |
+| POST | `/api/admin/ticket-types` | admin | nowy rodzaj biletu → `201` |
+| PATCH | `/api/admin/ticket-types/:id` | admin | zmiana nazwy, opisu, ceny, czasu ważności, ulgi |
+| PATCH | `/api/admin/ticket-types/:id/status` | admin | wycofanie ze sprzedaży / przywrócenie: `{ isActive }` |
+| GET | `/api/admin/tickets` | admin | wszystkie zakupy: `?status=`, `?userId=`, `?limit=` (1–200, domyślnie 50), `?offset=` |
+| GET | `/api/admin/stats` | admin | podsumowanie sprzedaży |
 
 Rejestracja i logowanie zwracają:
 
@@ -113,6 +119,38 @@ i symulowaną płatność (status `completed`). Zwraca `201`:
 `GET /api/tickets/me` zwraca `{ "tickets": [...] }` – każdy bilet w tym samym kształcie co `ticket` powyżej.
 
 Błędy zakupu: `400` zły `ticketTypeId` lub `paymentMethod`, `400` rodzaj biletu wycofany ze sprzedaży, `404` rodzaj biletu nie istnieje.
+
+### Panel administratora
+
+Wszystkie trasy `/api/admin/*` wymagają tokena konta z rolą `admin` (inaczej `401` / `403`).
+
+Rodzaj biletu w widoku admina ma pola publiczne oraz dodatkowo:
+
+```json
+{ "id": 1, "name": "Bilet 20-minutowy", "description": "Jednorazowy przejazd do 20 minut", "priceGrosze": 340, "durationMinutes": 20, "isReduced": false,
+  "isActive": true, "ticketsSold": 12, "createdAt": "2026-11-13 20:15:00", "updatedAt": "2026-11-24 09:00:00" }
+```
+
+- `POST /api/admin/ticket-types` – wymagane `name`, `priceGrosze` (liczba całkowita 0–100000), `durationMinutes` (1–525600);
+  opcjonalne `description`, `isReduced` (domyślnie `false`). Nowy rodzaj od razu jest w sprzedaży.
+- `PATCH /api/admin/ticket-types/:id` – wysyłamy tylko zmieniane pola, np. `{ "priceGrosze": 360 }`.
+  Zmiana ceny nie zmienia ceny już kupionych biletów.
+- `PATCH /api/admin/ticket-types/:id/status` – `{ "isActive": false }` wycofuje rodzaj ze sprzedaży
+  (znika z `GET /api/ticket-types`, zakup zwraca `400`); rodzajów nie usuwamy, bo wskazują na nie kupione bilety.
+- `GET /api/admin/tickets` zwraca `{ "tickets": [...], "total": 42, "limit": 50, "offset": 0 }`; każdy bilet jak w
+  `GET /api/tickets/me`, plus `"user": { "id", "email", "firstName", "lastName" }` i `"payment": { "method", "status" }`.
+- `GET /api/admin/stats`:
+
+```json
+{
+  "ticketsSold": 3, "revenueGrosze": 2120,
+  "ticketsByStatus": { "purchased": 3, "active": 0, "expired": 0 },
+  "registeredUsers": 1,
+  "byTicketType": [ { "id": 5, "name": "Bilet 24-godzinny", "isReduced": false, "ticketsSold": 1, "revenueGrosze": 1400 } ]
+}
+```
+
+Błędy: `400` niepoprawne dane lub parametry, `404` rodzaj biletu nie istnieje.
 
 ### Przykład z frontendu
 
