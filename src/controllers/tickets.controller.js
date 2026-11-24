@@ -1,7 +1,10 @@
 const db = require('../db/connection');
 const HttpError = require('../utils/HttpError');
+const parseId = require('../utils/parseId');
+const { toIsoUtc } = require('../utils/dates');
 
 const PAYMENT_METHODS = ['blik', 'card', 'transfer'];
+const TICKET_STATUSES = ['purchased', 'active', 'expired'];
 
 const findTicketTypeById = db.prepare('SELECT * FROM ticket_types WHERE id = ?');
 const insertTicket = db.prepare(`
@@ -23,10 +26,39 @@ const TICKET_WITH_TYPE_SQL = `
   FROM tickets t
   JOIN ticket_types tt ON tt.id = t.ticket_type_id
 `;
+const TICKET_ORDER_SQL = 'ORDER BY t.purchased_at DESC, t.id DESC';
 const findTicketWithTypeById = db.prepare(`${TICKET_WITH_TYPE_SQL} WHERE t.id = ?`);
 const listTicketsWithTypeByUser = db.prepare(
-  `${TICKET_WITH_TYPE_SQL} WHERE t.user_id = ? ORDER BY t.purchased_at DESC, t.id DESC`
+  `${TICKET_WITH_TYPE_SQL} WHERE t.user_id = ? ${TICKET_ORDER_SQL}`
 );
+const listTicketsWithTypeByUserAndStatus = db.prepare(
+  `${TICKET_WITH_TYPE_SQL} WHERE t.user_id = ? AND t.status = ? ${TICKET_ORDER_SQL}`
+);
+
+// Bilety aktywne, którym minął czas ważności, przechodzą w 'expired'.
+// Wywoływane przed każdym odczytem biletów, więc nie potrzebujemy crona.
+const markExpiredStmt = db.prepare(`
+  UPDATE tickets SET status = 'expired'
+  WHERE status = 'active' AND expires_at <= datetime('now')
+`);
+
+// Aktywacja w jednym zapytaniu. Warunek status = 'purchased' w WHERE chroni przed
+// podwójną aktywacją (np. dwa szybkie kliknięcia). datetime('now') ma tę samą wartość
+// w obrębie jednego zapytania, więc expires_at = activated_at + duration_minutes co do sekundy.
+const activateTicketStmt = db.prepare(`
+  UPDATE tickets
+  SET status = 'active',
+      activated_at = datetime('now'),
+      expires_at = datetime('now', '+' || (
+        SELECT duration_minutes FROM ticket_types WHERE id = tickets.ticket_type_id
+      ) || ' minutes')
+  WHERE id = ? AND user_id = ? AND status = 'purchased'
+`);
+const findOwnTicketStatus = db.prepare('SELECT status FROM tickets WHERE id = ? AND user_id = ?');
+
+function markExpired() {
+  return markExpiredStmt.run().changes;
+}
 
 // Bilet w formacie dla frontendu — ten sam kształt w każdym endpointcie
 function toPublicTicket(row) {
@@ -34,9 +66,9 @@ function toPublicTicket(row) {
     id: row.id,
     status: row.status,
     pricePaidGrosze: row.price_paid_grosze,
-    purchasedAt: row.purchased_at,
-    activatedAt: row.activated_at,
-    expiresAt: row.expires_at,
+    purchasedAt: toIsoUtc(row.purchased_at),
+    activatedAt: toIsoUtc(row.activated_at),
+    expiresAt: toIsoUtc(row.expires_at),
     ticketType: {
       id: row.type_id,
       name: row.type_name,
@@ -53,7 +85,7 @@ function toPublicPayment(row) {
     method: row.method,
     status: row.status,
     amountGrosze: row.amount_grosze,
-    createdAt: row.created_at,
+    createdAt: toIsoUtc(row.created_at),
   };
 }
 
@@ -93,10 +125,41 @@ function purchase(req, res) {
   });
 }
 
-// GET /api/tickets/me — bilety zalogowanego użytkownika, najnowsze pierwsze
+// GET /api/tickets/me?status=purchased|active|expired — bilety zalogowanego, najnowsze pierwsze
 function listMine(req, res) {
-  const tickets = listTicketsWithTypeByUser.all(req.user.id).map(toPublicTicket);
-  res.json({ tickets });
+  const { status } = req.query;
+  if (status !== undefined && !TICKET_STATUSES.includes(status)) {
+    throw new HttpError(400, `Parametr status musi mieć wartość: ${TICKET_STATUSES.join(', ')}.`);
+  }
+
+  markExpired();
+  const rows = status
+    ? listTicketsWithTypeByUserAndStatus.all(req.user.id, status)
+    : listTicketsWithTypeByUser.all(req.user.id);
+
+  res.json({ tickets: rows.map(toPublicTicket) });
 }
 
-module.exports = { purchase, listMine, toPublicTicket };
+// POST /api/tickets/:id/activate — aktywacja własnego, kupionego biletu
+function activate(req, res) {
+  const ticketId = parseId(req.params.id);
+
+  markExpired();
+  const { changes } = activateTicketStmt.run(ticketId, req.user.id);
+
+  if (changes === 0) {
+    const ticket = findOwnTicketStatus.get(ticketId, req.user.id);
+    // Cudzy bilet traktujemy jak nieistniejący — nie zdradzamy, że takie id istnieje
+    if (!ticket) {
+      throw new HttpError(404, 'Nie znaleziono biletu.');
+    }
+    if (ticket.status === 'active') {
+      throw new HttpError(409, 'Bilet jest już aktywny.');
+    }
+    throw new HttpError(409, 'Bilet wygasł i nie może zostać ponownie aktywowany.');
+  }
+
+  res.json({ ticket: toPublicTicket(findTicketWithTypeById.get(ticketId)) });
+}
+
+module.exports = { purchase, listMine, activate, markExpired, toPublicTicket };

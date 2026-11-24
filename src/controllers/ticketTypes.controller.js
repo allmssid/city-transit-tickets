@@ -1,5 +1,6 @@
 const db = require('../db/connection');
 const HttpError = require('../utils/HttpError');
+const parseId = require('../utils/parseId');
 
 const listActiveTicketTypes = db.prepare(
   'SELECT * FROM ticket_types WHERE is_active = 1 ORDER BY duration_minutes, is_reduced, id'
@@ -20,15 +21,6 @@ function toPublicTicketType(row) {
   };
 }
 
-// Parsuje parametr :id z URL — musi być dodatnią liczbą całkowitą
-function parseId(value) {
-  const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw new HttpError(400, 'Identyfikator musi być dodatnią liczbą całkowitą.');
-  }
-  return id;
-}
-
 // GET /api/ticket-types — tylko typy aktywne (dostępne w sprzedaży)
 function list(req, res) {
   const ticketTypes = listActiveTicketTypes.all().map(toPublicTicketType);
@@ -44,4 +36,4 @@ function getById(req, res) {
   res.json({ ticketType: toPublicTicketType(ticketType) });
 }
 
-module.exports = { list, getById, toPublicTicketType, parseId };
+module.exports = { list, getById, toPublicTicketType };
