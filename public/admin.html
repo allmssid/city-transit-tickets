@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bilety MPK — Panel administratora</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <script src="js/admin.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Bilety MPK <span class="badge">admin</span></div>
+    <nav class="topbar-actions">
+      <span id="adminEmail" class="muted"></span>
+      <a href="index.html" class="btn btn-ghost">Strona główna</a>
+      <button type="button" id="logoutBtn" class="btn btn-ghost">Wyloguj</button>
+    </nav>
+  </header>
+
+  <main class="page">
+    <!-- Komunikat dla niezalogowanych / bez roli admin -->
+    <div id="accessMessage" class="card access hidden"></div>
+
+    <div id="adminApp" class="hidden">
+      <h1>Panel administratora</h1>
+
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn" role="tab" data-tab="stats">Podsumowanie</button>
+        <button type="button" class="tab-btn" role="tab" data-tab="ticket-types">Cennik</button>
+        <button type="button" class="tab-btn" role="tab" data-tab="sales">Sprzedaż</button>
+      </div>
+
+      <div id="alertBox" class="alert" role="status"></div>
+
+      <!-- Podsumowanie: GET /api/admin/stats -->
+      <section id="tab-stats" class="tab-panel" hidden>
+        <div id="statTiles" class="tiles"></div>
+        <div class="card">
+          <h2>Sprzedaż według rodzaju biletu</h2>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr><th>Rodzaj biletu</th><th class="num">Sprzedane</th><th class="num">Przychód</th><th class="bar-col">Udział w przychodzie</th></tr>
+              </thead>
+              <tbody id="statsByTypeBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cennik: GET/POST/PATCH /api/admin/ticket-types -->
+      <section id="tab-ticket-types" class="tab-panel" hidden>
+        <div class="section-head">
+          <h2>Rodzaje biletów</h2>
+          <button type="button" id="addTicketTypeBtn" class="btn btn-primary">+ Dodaj rodzaj biletu</button>
+        </div>
+        <div class="card table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th>Nazwa</th><th>Ważność</th><th class="num">Cena</th><th class="num">Sprzedane</th><th>Status</th><th class="actions">Akcje</th></tr>
+            </thead>
+            <tbody id="ticketTypesBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Sprzedaż: GET /api/admin/tickets -->
+      <section id="tab-sales" class="tab-panel" hidden>
+        <div class="section-head">
+          <h2>Zakupione bilety</h2>
+          <label class="inline-field">Status
+            <select id="salesStatusFilter">
+              <option value="">Wszystkie</option>
+              <option value="purchased">Kupione</option>
+              <option value="active">Aktywne</option>
+              <option value="expired">Wygasłe</option>
+            </select>
+          </label>
+        </div>
+        <div class="card table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th>Data zakupu</th><th>Kupujący</th><th>Bilet</th><th class="num">Cena</th><th>Płatność</th><th>Status</th><th>Ważny do</th></tr>
+            </thead>
+            <tbody id="salesBody"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <button type="button" id="prevPageBtn" class="btn btn-ghost">← Poprzednia</button>
+          <span id="pageInfo" class="muted"></span>
+          <button type="button" id="nextPageBtn" class="btn btn-ghost">Następna →</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Formularz dodawania / edycji rodzaju biletu -->
+  <dialog id="ticketTypeDialog">
+    <form id="ticketTypeForm" novalidate>
+      <h2 id="dialogTitle">Nowy rodzaj biletu</h2>
+      <div id="formError" class="alert" role="alert"></div>
+
+      <div class="form-group">
+        <label for="ttName">Nazwa</label>
+        <input type="text" id="ttName" maxlength="100" placeholder="np. Bilet 90-minutowy" required>
+      </div>
+      <div class="form-group">
+        <label for="ttDescription">Opis <span>(opcjonalnie)</span></label>
+        <input type="text" id="ttDescription" maxlength="500" placeholder="np. Dowolna liczba przesiadek przez 90 minut">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="ttPrice">Cena (zł)</label>
+          <input type="text" id="ttPrice" inputmode="decimal" placeholder="np. 4,80" required>
+        </div>
+        <div class="form-group">
+          <label for="ttDuration">Czas ważności</label>
+          <div class="input-group">
+            <input type="number" id="ttDuration" min="1" step="1" placeholder="np. 90" required>
+            <select id="ttDurationUnit" aria-label="Jednostka czasu ważności">
+              <option value="1">min</option>
+              <option value="60">godz.</option>
+              <option value="1440">dni</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <label class="checkbox"><input type="checkbox" id="ttReduced"> Bilet ulgowy</label>
+
+      <div class="dialog-actions">
+        <button type="button" id="cancelDialogBtn" class="btn btn-ghost">Anuluj</button>
+        <button type="submit" id="saveTicketTypeBtn" class="btn btn-primary">Zapisz</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
